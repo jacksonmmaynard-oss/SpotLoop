@@ -12,6 +12,7 @@
   const STORAGE_KEY = "spotloop:state:v1";
   const MIN_LOOP_MS = 1000;
   const SEEK_GUARD_MS = 350;
+  const LOOP_POLL_MS = 100;
 
   function clamp(value, minimum, maximum) {
     return Math.min(Math.max(Number(value) || 0, minimum), maximum);
@@ -473,10 +474,10 @@
 
     Spicetify.Player.addEventListener("onprogress", onProgress);
     Spicetify.Player.addEventListener("songchange", onSongChange);
+    setInterval(onProgress, LOOP_POLL_MS);
 
     console.log("[SpotLoop] Loaded");
   }
 
   waitForSpicetify();
 })();
-
