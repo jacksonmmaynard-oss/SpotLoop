@@ -6,6 +6,10 @@
 
 SpotLoop is a lightweight [Spicetify](https://spicetify.app/) extension that adds A-B repeat controls to Spotify Desktop. Mark the beginning and end of a verse, chorus, solo, or any other moment, then replay that exact section without modifying the audio file.
 
+<p align="center">
+  <img src="assets/spotloop-demo.gif" alt="SpotLoop looping part of Nights by Frank Ocean" width="900">
+</p>
+
 ## Features
 
 - Set loop point A and point B at the current playback position
@@ -31,24 +35,67 @@ Click the SpotLoop button in Spotify's player bar to open the full controls. Rig
 
 ## Install on Windows
 
-1. Install [Spicetify CLI](https://spicetify.app/docs/getting-started/).
-2. Download `spotloop.js` from this repository.
-3. Copy it to:
+1. Install the regular desktop version of Spotify from Spotify's website when possible. The Microsoft Store build is only partly supported by Spicetify.
+2. Install [Spicetify CLI](https://spicetify.app/docs/getting-started/). One option is:
+
+   ```powershell
+   winget install --id Spicetify.Spicetify -e
+   ```
+
+3. Close and reopen PowerShell, then confirm the command works:
+
+   ```powershell
+   spicetify --version
+   ```
+
+4. [Download `spotloop.js`](spotloop.js) and copy it to:
 
    ```text
    %appdata%\spicetify\Extensions\spotloop.js
    ```
 
-4. Open PowerShell and run:
+5. Close Spotify completely, then run:
 
    ```powershell
    spicetify config extensions spotloop.js
-   spicetify apply
+   spicetify backup apply
    ```
 
-5. Open Spotify and look for the repeat-style SpotLoop button in the player bar.
+6. Open Spotify and look for the repeat-style SpotLoop button in the player bar.
 
 The `spicetify config extensions` command appends SpotLoop to your existing extensions rather than replacing them.
+
+### Microsoft Store Spotify
+
+The Store build can work, but it must be launched through Spicetify after applying SpotLoop:
+
+```powershell
+spicetify auto
+```
+
+Keep that terminal open while Spotify is running. Do not launch the modified Store build from Spotify's original Start menu tile.
+
+If PowerShell cannot find `spicetify` even though Winget reports it installed, locate the executable and use its full path:
+
+```powershell
+$spicetifyExe = Get-ChildItem `
+  "$env:LOCALAPPDATA\spicetify", `
+  "$env:LOCALAPPDATA\Microsoft\WinGet\Packages" `
+  -Filter "spicetify.exe" -Recurse -ErrorAction SilentlyContinue |
+  Select-Object -First 1
+
+& $spicetifyExe.FullName config extensions spotloop.js
+& $spicetifyExe.FullName backup apply
+& $spicetifyExe.FullName auto
+```
+
+### Updating SpotLoop
+
+Replace the installed `spotloop.js` with the latest version, close Spotify, then run:
+
+```powershell
+spicetify apply
+```
 
 ## Install on Linux or macOS
 
@@ -67,7 +114,7 @@ spicetify apply
 4. Select **Start loop**.
 5. Optionally give the section a name and save it for that track.
 
-The minimum loop length is one second. SpotLoop checks Spotify's current position through Spicetify's player event system and seeks back to A whenever playback reaches B.
+The minimum loop length is one second. SpotLoop schedules the selected boundary and seeks back to A whenever playback reaches B, with player progress checks as a secondary safeguard.
 
 ## Development
 
