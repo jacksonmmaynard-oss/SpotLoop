@@ -1,0 +1,18 @@
+{
+  "name": "spotloop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A-B repeat and saved song sections for Spotify Desktop via Spicetify.",
+  "scripts": {
+    "check": "node --check spotloop.js",
+    "test": "node --test"
+  },
+  "keywords": [
+    "spotify",
+    "spicetify",
+    "a-b-repeat",
+    "loop"
+  ],
+  "license": "MIT"
+}
+
