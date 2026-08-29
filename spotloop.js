@@ -13,6 +13,7 @@
   const MIN_LOOP_MS = 1000;
   const SEEK_GUARD_MS = 350;
   const LOOP_POLL_MS = 100;
+  const PROGRESS_SYNC_THRESHOLD_MS = 25;
 
   function clamp(value, minimum, maximum) {
     return Math.min(Math.max(Number(value) || 0, minimum), maximum);
@@ -88,6 +89,9 @@
     let loopEnabled = false;
     let loopTrackUri = null;
     let lastSeekAt = 0;
+    let estimatedProgress = null;
+    let lastObservedProgress = null;
+    let lastProgressCheckAt = Date.now();
     let state = loadState();
     let playbarButton = null;
 
@@ -132,8 +136,39 @@
     function stopLoop(silent = false) {
       loopEnabled = false;
       loopTrackUri = null;
+      estimatedProgress = null;
+      lastObservedProgress = null;
       syncPlaybarButton();
       if (!silent) notify("SpotLoop paused");
+    }
+
+    function resetProgressClock(position) {
+      estimatedProgress = Math.max(0, Number(position) || 0);
+      lastObservedProgress = estimatedProgress;
+      lastProgressCheckAt = Date.now();
+    }
+
+    function getLiveProgress() {
+      const now = Date.now();
+      const elapsed = Math.max(0, now - lastProgressCheckAt);
+      const observed = Number(Spicetify.Player.getProgress());
+      const observedMoved =
+        Number.isFinite(observed) &&
+        lastObservedProgress !== null &&
+        Math.abs(observed - lastObservedProgress) >= PROGRESS_SYNC_THRESHOLD_MS;
+
+      if (estimatedProgress === null) {
+        estimatedProgress = Number.isFinite(observed) ? observed : 0;
+      } else if (observedMoved && now - lastSeekAt >= SEEK_GUARD_MS) {
+        estimatedProgress = observed;
+      } else if (Spicetify.Player.isPlaying()) {
+        const speed = Math.max(0.1, Number(Spicetify.Player.data?.playback_speed) || 1);
+        estimatedProgress += elapsed * speed;
+      }
+
+      if (Number.isFinite(observed)) lastObservedProgress = observed;
+      lastProgressCheckAt = now;
+      return estimatedProgress;
     }
 
     function activateLoop({ seekToStart = true } = {}) {
@@ -146,7 +181,13 @@
 
       loopEnabled = true;
       loopTrackUri = track.uri;
-      if (seekToStart) Spicetify.Player.seek(markerA);
+      if (seekToStart) {
+        lastSeekAt = Date.now();
+        Spicetify.Player.seek(markerA);
+        resetProgressClock(markerA);
+      } else {
+        resetProgressClock(Spicetify.Player.getProgress());
+      }
       if (!Spicetify.Player.isPlaying()) Spicetify.Player.play();
       syncPlaybarButton();
       notify(`Looping ${formatTime(markerA)} to ${formatTime(markerB)}`);
@@ -253,11 +294,12 @@
         return;
       }
 
-      const progress = Number(Spicetify.Player.getProgress()) || 0;
+      const progress = getLiveProgress();
       const now = Date.now();
       if (progress >= markerB && now - lastSeekAt >= SEEK_GUARD_MS) {
         lastSeekAt = now;
         Spicetify.Player.seek(markerA);
+        resetProgressClock(markerA);
       }
     }
 
