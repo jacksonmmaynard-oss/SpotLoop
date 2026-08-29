@@ -10,7 +10,7 @@
   "use strict";
 
   const STORAGE_KEY = "spotloop:state:v1";
-  const VERSION = "0.1.3";
+  const VERSION = "0.1.4";
   const MIN_LOOP_MS = 1000;
   const SEEK_GUARD_MS = 350;
   const LOOP_POLL_MS = 100;
@@ -93,6 +93,7 @@
     let estimatedProgress = null;
     let lastObservedProgress = null;
     let lastProgressCheckAt = Date.now();
+    let loopBoundaryTimer = null;
     let state = loadState();
     let playbarButton = null;
 
@@ -137,10 +138,30 @@
     function stopLoop(silent = false) {
       loopEnabled = false;
       loopTrackUri = null;
+      if (loopBoundaryTimer !== null) clearTimeout(loopBoundaryTimer);
+      loopBoundaryTimer = null;
       estimatedProgress = null;
       lastObservedProgress = null;
       syncPlaybarButton();
       if (!silent) notify("SpotLoop paused");
+    }
+
+    function scheduleLoopBoundary(fromPosition = markerA) {
+      if (loopBoundaryTimer !== null) clearTimeout(loopBoundaryTimer);
+      loopBoundaryTimer = null;
+      if (!loopEnabled || !Number.isFinite(markerA) || !Number.isFinite(markerB)) return;
+
+      const current = clamp(fromPosition, markerA, markerB);
+      const remaining = Math.max(50, markerB - current);
+      loopBoundaryTimer = setTimeout(performLoopSeek, remaining);
+    }
+
+    function performLoopSeek() {
+      if (!loopEnabled) return;
+      lastSeekAt = Date.now();
+      Spicetify.Player.seek(markerA);
+      resetProgressClock(markerA);
+      scheduleLoopBoundary(markerA);
     }
 
     function resetProgressClock(position) {
@@ -193,6 +214,7 @@
         resetProgressClock(Spicetify.Player.getProgress());
       }
       if (!Spicetify.Player.isPlaying()) Spicetify.Player.play();
+      scheduleLoopBoundary(markerA);
       syncPlaybarButton();
       notify(`Looping ${formatTime(markerA)} to ${formatTime(markerB)}`);
       return true;
@@ -222,6 +244,7 @@
       }
 
       if (!validBounds(markerA, markerB, duration)) loopEnabled = false;
+      if (loopEnabled) scheduleLoopBoundary(getLiveProgress());
       syncPlaybarButton();
       notify(`${which} set at ${formatTime(position)}`);
       refreshOpenModal();
@@ -301,9 +324,7 @@
       const progress = getLiveProgress();
       const now = Date.now();
       if (progress >= markerB && now - lastSeekAt >= SEEK_GUARD_MS) {
-        lastSeekAt = now;
-        Spicetify.Player.seek(markerA);
-        resetProgressClock(markerA);
+        performLoopSeek();
       }
     }
 
@@ -460,6 +481,7 @@
         rangeA.value = String(markerA);
         timeA.textContent = formatTime(markerA);
         if (loopEnabled && !validBounds(markerA, markerB, track.duration)) stopLoop(true);
+        else if (loopEnabled) scheduleLoopBoundary(getLiveProgress());
         syncPlaybarButton();
       });
 
@@ -469,6 +491,7 @@
         rangeB.value = String(markerB);
         timeB.textContent = formatTime(markerB);
         if (loopEnabled && !validBounds(markerA, markerB, track.duration)) stopLoop(true);
+        else if (loopEnabled) scheduleLoopBoundary(getLiveProgress());
         syncPlaybarButton();
       });
 
