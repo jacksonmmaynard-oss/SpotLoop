@@ -10,6 +10,7 @@
   "use strict";
 
   const STORAGE_KEY = "spotloop:state:v1";
+  const VERSION = "0.1.3";
   const MIN_LOOP_MS = 1000;
   const SEEK_GUARD_MS = 350;
   const LOOP_POLL_MS = 100;
@@ -161,7 +162,10 @@
         estimatedProgress = Number.isFinite(observed) ? observed : 0;
       } else if (observedMoved && now - lastSeekAt >= SEEK_GUARD_MS) {
         estimatedProgress = observed;
-      } else if (Spicetify.Player.isPlaying()) {
+      } else if (
+        Spicetify.Player.data?.is_paused !== true &&
+        Spicetify.Player.data?.isPaused !== true
+      ) {
         const speed = Math.max(0.1, Number(Spicetify.Player.data?.playback_speed) || 1);
         estimatedProgress += elapsed * speed;
       }
@@ -486,7 +490,7 @@
 
     function openModal() {
       Spicetify.PopupModal.display({
-        title: "SpotLoop",
+        title: `SpotLoop v${VERSION}`,
         content: renderModalContent(),
         isLarge: true,
       });
@@ -518,7 +522,7 @@
     Spicetify.Player.addEventListener("songchange", onSongChange);
     setInterval(onProgress, LOOP_POLL_MS);
 
-    console.log("[SpotLoop] Loaded");
+    console.log(`[SpotLoop] Loaded v${VERSION}`);
   }
 
   waitForSpicetify();
