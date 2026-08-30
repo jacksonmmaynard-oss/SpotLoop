@@ -6,6 +6,17 @@
 
 SpotLoop is a lightweight [Spicetify](https://spicetify.app/) extension that adds A-B repeat controls to Spotify Desktop. Mark the beginning and end of a verse, chorus, solo, or any other moment, then replay that exact section without modifying the audio file.
 
+## Project status
+
+**Complete and ready to use.** SpotLoop v0.1.5 is the current stable version. The planned core feature set is finished, and the project will receive maintenance and compatibility updates when needed.
+
+### Latest fix: v0.1.5
+
+- Stops an active loop when the track changes
+- Detects when playback moves to another Spotify Connect device
+- Prevents a desktop loop from seeking songs playing on a phone or other device
+- Adds automated coverage for track and playback-device changes
+
 <p align="center">
   <img src="assets/spotloop-demo.gif" alt="SpotLoop looping part of Nights by Frank Ocean" width="900">
 </p>
