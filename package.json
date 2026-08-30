@@ -1,6 +1,6 @@
 {
   "name": "spotloop",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "description": "A-B repeat and saved song sections for Spotify Desktop via Spicetify.",
   "scripts": {

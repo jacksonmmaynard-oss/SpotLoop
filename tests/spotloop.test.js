@@ -7,6 +7,7 @@ const {
   formatTime,
   validBounds,
   makeLastWindow,
+  playbackContextChanged,
   safeParseState,
 } = require("../spotloop.js");
 
@@ -34,6 +35,13 @@ test("builds a trailing playback window", () => {
   assert.deepEqual(makeLastWindow(8000, 15000), { start: 0, end: 8000 });
 });
 
+test("detects track and playback-device changes", () => {
+  assert.equal(playbackContextChanged("track:a", "track:a", "pc", "pc"), false);
+  assert.equal(playbackContextChanged("track:a", "track:b", "pc", "pc"), true);
+  assert.equal(playbackContextChanged("track:a", "track:a", "pc", "phone"), true);
+  assert.equal(playbackContextChanged("track:a", "track:a", null, null), false);
+});
+
 test("recovers safely from invalid saved state", () => {
   assert.deepEqual(safeParseState("not-json"), { version: 1, sectionsByTrack: {} });
   assert.deepEqual(safeParseState('{"sectionsByTrack":{"track":[]}}'), {
@@ -41,4 +49,3 @@ test("recovers safely from invalid saved state", () => {
     sectionsByTrack: { track: [] },
   });
 });
-

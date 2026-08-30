@@ -21,7 +21,7 @@ SpotLoop is a lightweight [Spicetify](https://spicetify.app/) extension that add
 - Playbar button with an active-loop state
 - Global keyboard shortcuts
 - Local-only storage with no Spotify API credentials
-- Automatic loop cancellation when the track changes
+- Automatic loop cancellation when the track or active Spotify Connect device changes
 
 ## Shortcuts
 
@@ -136,7 +136,7 @@ To test inside Spotify, copy the edited `spotloop.js` into the Spicetify Extensi
 
 ## Privacy
 
-SpotLoop does not send track data anywhere. Saved section names and timestamps remain in Spotify Desktop's local storage.
+SpotLoop does not send track data to third parties. It checks Spotify's own playback state to prevent desktop loops from affecting another Spotify Connect device. Saved section names and timestamps remain in Spotify Desktop's local storage.
 
 ## Disclaimer
 

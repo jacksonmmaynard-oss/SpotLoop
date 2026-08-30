@@ -10,7 +10,7 @@
   "use strict";
 
   const STORAGE_KEY = "spotloop:state:v1";
-  const VERSION = "0.1.4";
+  const VERSION = "0.1.5";
   const MIN_LOOP_MS = 1000;
   const SEEK_GUARD_MS = 350;
   const LOOP_POLL_MS = 100;
@@ -42,6 +42,18 @@
     return { start: Math.max(0, end - windowMs), end };
   }
 
+  function playbackContextChanged(
+    expectedTrackUri,
+    currentTrackUri,
+    expectedDeviceId = null,
+    currentDeviceId = null,
+  ) {
+    if (!currentTrackUri || currentTrackUri !== expectedTrackUri) return true;
+    return Boolean(
+      expectedDeviceId && currentDeviceId && expectedDeviceId !== currentDeviceId,
+    );
+  }
+
   function emptyState() {
     return { version: 1, sectionsByTrack: {} };
   }
@@ -64,7 +76,14 @@
   }
 
   if (typeof module !== "undefined" && module.exports) {
-    module.exports = { clamp, formatTime, validBounds, makeLastWindow, safeParseState };
+    module.exports = {
+      clamp,
+      formatTime,
+      validBounds,
+      makeLastWindow,
+      playbackContextChanged,
+      safeParseState,
+    };
   }
 
   if (typeof Spicetify === "undefined") return;
@@ -75,7 +94,8 @@
       !Spicetify.Playbar ||
       !Spicetify.PopupModal ||
       !Spicetify.Keyboard ||
-      !Spicetify.LocalStorage
+      !Spicetify.LocalStorage ||
+      !Spicetify.CosmosAsync
     ) {
       setTimeout(waitForSpicetify, 250);
       return;
@@ -89,6 +109,7 @@
     let markerB = null;
     let loopEnabled = false;
     let loopTrackUri = null;
+    let loopDeviceId = null;
     let lastSeekAt = 0;
     let estimatedProgress = null;
     let lastObservedProgress = null;
@@ -138,6 +159,7 @@
     function stopLoop(silent = false) {
       loopEnabled = false;
       loopTrackUri = null;
+      loopDeviceId = null;
       if (loopBoundaryTimer !== null) clearTimeout(loopBoundaryTimer);
       loopBoundaryTimer = null;
       estimatedProgress = null;
@@ -156,8 +178,44 @@
       loopBoundaryTimer = setTimeout(performLoopSeek, remaining);
     }
 
-    function performLoopSeek() {
+    async function getActiveDeviceId() {
+      if (!Spicetify.CosmosAsync?.get) return null;
+      try {
+        const playback = await Spicetify.CosmosAsync.get(
+          "https://api.spotify.com/v1/me/player",
+        );
+        return playback?.device?.id || null;
+      } catch {
+        return null;
+      }
+    }
+
+    async function performLoopSeek() {
       if (!loopEnabled) return;
+      const trackBeforeCheck = trackInfo();
+      if (playbackContextChanged(loopTrackUri, trackBeforeCheck.uri)) {
+        stopLoop(true);
+        return;
+      }
+
+      const activeDeviceId = await getActiveDeviceId();
+      if (!loopEnabled) return;
+      const currentTrack = trackInfo();
+      if (
+        playbackContextChanged(
+          loopTrackUri,
+          currentTrack.uri,
+          loopDeviceId,
+          activeDeviceId,
+        )
+      ) {
+        stopLoop(true);
+        notify("Loop stopped because playback moved to another track or device.");
+        refreshOpenModal();
+        return;
+      }
+
+      if (!loopDeviceId && activeDeviceId) loopDeviceId = activeDeviceId;
       lastSeekAt = Date.now();
       Spicetify.Player.seek(markerA);
       resetProgressClock(markerA);
@@ -206,6 +264,12 @@
 
       loopEnabled = true;
       loopTrackUri = track.uri;
+      loopDeviceId = null;
+      getActiveDeviceId().then((deviceId) => {
+        if (loopEnabled && loopTrackUri === trackInfo().uri && deviceId) {
+          loopDeviceId = deviceId;
+        }
+      });
       if (seekToStart) {
         lastSeekAt = Date.now();
         Spicetify.Player.seek(markerA);
